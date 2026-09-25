@@ -18,14 +18,35 @@ export async function getBackend(){
    subscribeCollection(id,name,cb){const q=api.query(col(id,name),api.orderBy('order'));return api.onSnapshot(q,s=>cb(s.docs.map(d=>({id:d.id,...normalize(d.data())}))))},
    subscribeRuntime(id,cb){return api.onSnapshot(path(id,'runtime','state'),s=>cb(s.exists()?normalize(s.data()):null))},
    async seedEvent(id,payload){
-    const batch=api.writeBatch(db); const now=api.serverTimestamp();
-    const meta={...payload.meta,createdAt:now,updatedAt:now,ownerUid:auth.currentUser.uid,ceremonyStartAt:payload.meta.ceremonyStartAt?api.Timestamp.fromDate(new Date(payload.meta.ceremonyStartAt)):null};
-    batch.set(path(id),meta);
-    for(const name of ['slides','categories','graduates','awards','tracks','schedule']){
-     for(const d of payload[name]||[]){const {id:docId,...data}=d;const copy={...data};if(copy.runAt instanceof Date)copy.runAt=api.Timestamp.fromDate(copy.runAt);batch.set(path(id,name,docId),copy)}
+    // Create/update the parent event first. Child rules verify ownership by
+    // reading this document, so putting parent + children in one first-run
+    // batch causes child writes to be rejected by Firestore.
+    const eventRef=path(id),existing=await api.getDoc(eventRef),now=api.serverTimestamp();
+    const toTimestamp=v=>{if(!v)return null;if(v instanceof api.Timestamp)return v;const d=new Date(v);return Number.isNaN(d.valueOf())?null:api.Timestamp.fromDate(d)};
+    const ownerUid=existing.exists()?(existing.data().ownerUid||auth.currentUser.uid):auth.currentUser.uid;
+    const createdAt=existing.exists()?(existing.data().createdAt||now):now;
+    const meta={...payload.meta,createdAt,updatedAt:now,ownerUid,ceremonyStartAt:toTimestamp(payload.meta.ceremonyStartAt)};
+    await api.setDoc(eventRef,meta,{merge:false});
+
+    // Reset editor-managed collections so JSON import and Starter Event are
+    // true replacements rather than additive merges.
+    const names=['slides','categories','graduates','awards','tracks','schedule'];
+    for(const name of names){
+     const snap=await api.getDocs(col(id,name));
+     const docs=snap.docs;
+     for(let i=0;i<docs.length;i+=450){const batch=api.writeBatch(db);for(const d of docs.slice(i,i+450))batch.delete(d.ref);await batch.commit()}
     }
-    batch.set(path(id,'runtime','state'),{...payload.runtime,slideStartedAt:now,updatedAt:now,updatedBy:auth.currentUser.uid});
-    await batch.commit();
+
+    const writes=[];
+    for(const name of names){
+     for(const d of payload[name]||[]){
+      const {id:docId,...data}=d;if(!docId)continue;
+      const copy={...data};if(copy.runAt)copy.runAt=toTimestamp(copy.runAt);
+      writes.push({ref:path(id,name,docId),data:copy});
+     }
+    }
+    writes.push({ref:path(id,'runtime','state'),data:{...payload.runtime,slideStartedAt:now,updatedAt:now,updatedBy:auth.currentUser.uid}});
+    for(let i=0;i<writes.length;i+=450){const batch=api.writeBatch(db);for(const w of writes.slice(i,i+450))batch.set(w.ref,w.data,{merge:false});await batch.commit()}
    },
    async putDoc(id,name,docId,data){const copy={...data};if(copy.runAt instanceof Date)copy.runAt=api.Timestamp.fromDate(copy.runAt);await api.setDoc(path(id,name,docId),copy,{merge:false})},
    async updateEvent(id,patch){const copy={...patch,updatedAt:api.serverTimestamp()};if('ceremonyStartAt'in copy)copy.ceremonyStartAt=copy.ceremonyStartAt?api.Timestamp.fromDate(new Date(copy.ceremonyStartAt)):null;await api.updateDoc(path(id),copy)},
