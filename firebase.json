@@ -1,0 +1,15 @@
+{
+  "auth": {
+    "authorizedDomains": [
+      "localhost",
+      "accelanalysis.github.io"
+    ],
+    "providers": {
+      "emailPassword": true
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  }
+}
