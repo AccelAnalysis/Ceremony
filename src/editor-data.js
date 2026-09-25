@@ -53,8 +53,8 @@ export function renderDataPanel(p,ctx){
   if(event&&!confirm('Reset this event to the starter deck? This replaces the editor-managed event data.'))return;
   const btn=e.currentTarget;btn.disabled=true;setStatus('Creating starter event…');
   try{
-   await ctx.backend.seedEvent(ctx.eventId,buildSeedPayload(event?.name||'AK9I Graduation'));
-   setStatus('Starter event ready.');toast('Starter event ready');
+   await ctx.backend.seedEvent(ctx.eventId,buildSeedPayload(event?.name||'AK9I Graduation'),event);
+   setStatus('Starter event ready. Reloading…');toast('Starter event ready');setTimeout(()=>location.reload(),350);
   }catch(err){console.error(err);setStatus(`Starter event failed: ${err.message}`,true);toast('Starter event failed')}
   finally{btn.disabled=false}
  };
@@ -73,8 +73,8 @@ export function renderDataPanel(p,ctx){
   try{
    const raw=JSON.parse(await file.text());
    const payload=normalizeImport(raw,event?.name||'AK9I Graduation');
-   await ctx.backend.seedEvent(ctx.eventId,payload);
-   setStatus(`Imported ${file.name} successfully.`);toast('Event JSON imported');
+   await ctx.backend.seedEvent(ctx.eventId,payload,event);
+   setStatus(`Imported ${file.name} successfully. Reloading…`);toast('Event JSON imported');setTimeout(()=>location.reload(),350);
   }catch(err){console.error(err);setStatus(`Import failed: ${err.message}`,true);toast('JSON import failed')}
   finally{btn.disabled=false}
  };
