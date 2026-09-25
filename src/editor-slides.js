@@ -1,0 +1,26 @@
+import {input,modal,closeOnCancel,num,clamp,esc,toast} from './editor-helpers.js';
+import {uid} from './utils.js';
+import {MODE_KEYS} from './seed-data.js';
+
+export function renderSlidesPanel(p,ctx){
+ const {slides,categories}=ctx.state;const catOpts=categories.map(c=>[c.id,c.name]);
+ p.innerHTML=`<div class="panel-head"><div><h2 class="section-title">Slides · ${slides.length}</h2><p class="section-sub">Edit image/video URLs, timing, category conditions, modes, and cinematic treatment.</p></div><button class="btn primary" id="addSlide">Add slide</button></div><div class="item-list">${slides.map(s=>`<article class="item-card" data-id="${esc(s.id)}"><div class="item-card-head"><div><b>${String(s.order).padStart(2,'0')} · ${esc(s.title)}</b><div class="meta">${esc(s.mediaType||'image')} · ${esc(categories.find(c=>c.id===s.categoryId)?.name||s.categoryId||'')} · ${s.enabled===false?'excluded':'included'}</div></div><div class="toolbar"><button class="btn edit">Edit</button><button class="btn duplicate">Duplicate</button><button class="btn danger remove">Remove</button></div></div></article>`).join('')}</div>`;
+ p.querySelector('#addSlide').onclick=()=>openSlide({id:uid('slide'),order:(slides.at(-1)?.order||0)+1,title:'New Slide',eyebrow:'AK9I',sub:'',mediaType:'image',mediaUrl:'',creditUrl:'',align:'left',position:'center center',transition:'fade',motion:'a',effect:'vignette',duration:0,enabled:true,categoryId:categories[0]?.id||'opening',modes:Object.fromEntries(MODE_KEYS.map(k=>[k,true]))});
+ p.querySelectorAll('[data-id]').forEach(row=>{const s=slides.find(x=>x.id===row.dataset.id);row.querySelector('.edit').onclick=()=>openSlide(s);row.querySelector('.duplicate').onclick=()=>openSlide({...structuredClone(s),id:uid('slide'),title:`${s.title} Copy`,order:(slides.at(-1)?.order||0)+1});row.querySelector('.remove').onclick=async()=>{if(confirm(`Remove “${s.title}”?`))await ctx.backend.deleteDoc(ctx.eventId,'slides',s.id)}});
+ function openSlide(s){
+  const m=modal(s.title||'Slide',`<div class="form-grid">
+   ${input('Title',s.title,'text','id="title"')}${input('Eyebrow',s.eyebrow,'text','id="eyebrow"')}
+   <div class="field span2"><label>Subtitle</label><textarea id="sub">${esc(s.sub||'')}</textarea></div>
+   <div class="field"><label>Media type</label><select id="mediaType"><option value="image" ${s.mediaType!=='video'?'selected':''}>Image</option><option value="video" ${s.mediaType==='video'?'selected':''}>Video background</option></select></div>
+   ${input('Image / video URL',s.mediaUrl,'url','id="mediaUrl"')}${input('Credit URL',s.creditUrl,'url','id="creditUrl"')}
+   ${input('Order',s.order,'number','id="order" min="1" max="999"')}${input('Duration override (0 = event default)',s.duration,'number','id="duration" min="0" max="300" step="1"')}
+   <div class="field"><label>Category</label><select id="category">${catOpts.map(([v,l])=>`<option value="${esc(v)}" ${v===s.categoryId?'selected':''}>${esc(l)}</option>`).join('')}</select></div>
+   <div class="field"><label>Text alignment</label><select id="align">${['left','center','right'].map(v=>`<option ${v===s.align?'selected':''}>${v}</option>`).join('')}</select></div>
+   ${input('Media position',s.position||'center center','text','id="position"')}
+   <div class="field"><label>Transition</label><select id="transition">${['fade','zoom','left','right','up','blur','wipe'].map(v=>`<option ${v===s.transition?'selected':''}>${v}</option>`).join('')}</select></div>
+   <div class="field"><label>Cinematic effect</label><select id="effect">${['vignette','goldSweep','lightSweep','focusPulse'].map(v=>`<option ${v===s.effect?'selected':''}>${v}</option>`).join('')}</select></div>
+   <div class="field check"><label><input id="enabled" type="checkbox" ${s.enabled!==false?'checked':''}> Included in deck</label></div>
+  </div><fieldset><legend>Ceremony Modes</legend><div class="mode-checks">${MODE_KEYS.map(k=>`<label><input type="checkbox" data-mode="${k}" ${s.modes?.[k]!==false?'checked':''}> ${k}</label>`).join('')}</div></fieldset><div class="toolbar" style="margin-top:16px"><button class="btn primary" data-save>Save slide</button><button class="btn" data-cancel>Cancel</button></div>`);closeOnCancel(m);
+  m.querySelector('[data-save]').onclick=async()=>{const modes=Object.fromEntries([...m.querySelectorAll('[data-mode]')].map(x=>[x.dataset.mode,x.checked]));await ctx.backend.putDoc(ctx.eventId,'slides',s.id,{title:m.querySelector('#title').value.trim().slice(0,160),eyebrow:m.querySelector('#eyebrow').value.trim().slice(0,100),sub:m.querySelector('#sub').value.trim().slice(0,600),mediaType:m.querySelector('#mediaType').value,mediaUrl:m.querySelector('#mediaUrl').value.trim().slice(0,2048),creditUrl:m.querySelector('#creditUrl').value.trim().slice(0,2048),order:clamp(num(m.querySelector('#order').value,1),1,999),duration:clamp(num(m.querySelector('#duration').value,0),0,300),categoryId:m.querySelector('#category').value,align:m.querySelector('#align').value,position:m.querySelector('#position').value.trim().slice(0,80),transition:m.querySelector('#transition').value,motion:s.motion||'a',effect:m.querySelector('#effect').value,enabled:m.querySelector('#enabled').checked,modes});m.remove();toast('Slide saved')};
+ }
+}
