@@ -17,16 +17,21 @@ export async function getBackend(){
    subscribeEvent(id,cb){return api.onSnapshot(path(id),s=>cb(s.exists()?{id:s.id,...normalize(s.data())}:null))},
    subscribeCollection(id,name,cb){const q=api.query(col(id,name),api.orderBy('order'));return api.onSnapshot(q,s=>cb(s.docs.map(d=>({id:d.id,...normalize(d.data())}))))},
    subscribeRuntime(id,cb){return api.onSnapshot(path(id,'runtime','state'),s=>cb(s.exists()?normalize(s.data()):null))},
-   async seedEvent(id,payload){
-    // Create/update the parent event first. Child rules verify ownership by
-    // reading this document, so putting parent + children in one first-run
-    // batch causes child writes to be rejected by Firestore.
-    const eventRef=path(id),existing=await api.getDoc(eventRef),now=api.serverTimestamp();
+   async seedEvent(id,payload,existingEvent=null){
+    // Do not read a missing parent event before creating it. Under the
+    // owner-scoped rules, reading a document that does not exist is correctly
+    // denied, which previously made first-run setup fail with
+    // "Missing or insufficient permissions".
+    const eventRef=path(id),now=api.serverTimestamp();
     const toTimestamp=v=>{if(!v)return null;if(v instanceof api.Timestamp)return v;const d=new Date(v);return Number.isNaN(d.valueOf())?null:api.Timestamp.fromDate(d)};
-    const ownerUid=existing.exists()?(existing.data().ownerUid||auth.currentUser.uid):auth.currentUser.uid;
-    const createdAt=existing.exists()?(existing.data().createdAt||now):now;
-    const meta={...payload.meta,createdAt,updatedAt:now,ownerUid,ceremonyStartAt:toTimestamp(payload.meta.ceremonyStartAt)};
-    await api.setDoc(eventRef,meta,{merge:false});
+    const meta={...payload.meta,updatedAt:now,ceremonyStartAt:toTimestamp(payload.meta.ceremonyStartAt)};
+    if(existingEvent){
+     // Preserve immutable ownerUid/createdAt by updating only mutable event
+     // fields. This also avoids timestamp precision loss on a reset/import.
+     await api.updateDoc(eventRef,meta);
+    }else{
+     await api.setDoc(eventRef,{...meta,createdAt:now,ownerUid:auth.currentUser.uid},{merge:false});
+    }
 
     // Reset editor-managed collections so JSON import and Starter Event are
     // true replacements rather than additive merges.
