@@ -4,28 +4,159 @@ import {eventIdFromUrl,rememberEventId,formatClock} from './utils.js';
 import {MODE_LABELS,MODE_AUTO,activeSlides,actionPatch} from './state.js';
 import {startScheduler} from './scheduler.js';
 
-const eventId=eventIdFromUrl();rememberEventId(eventId);await mountAuthGate({title:'Event Director',allowSignUp:false,subtitle:`Live control · ${eventId}`});
-const {backend,auth}=await getBackend();let event=null,runtime=null,slides=[],categories=[],graduates=[],awards=[],tracks=[],schedule=[];let wakeLock=null,autoAdvanceTimer=0;
+const eventId=eventIdFromUrl();rememberEventId(eventId);
+await mountAuthGate({title:'Event Director',allowSignUp:false,subtitle:`Live control · ${eventId}`});
+const {backend,auth}=await getBackend();
+
+let event=null,runtime=null,slides=[],categories=[],graduates=[],awards=[],tracks=[],schedule=[];
+let wakeLock=null,autoAdvanceTimer=0;
 const snap=()=>({event,runtime,slides,categories,graduates,awards,tracks,schedule});
-backend.subscribeEvent(eventId,v=>{event=v;document.querySelector('#eventName').textContent=v?.name||'Event not found';document.querySelector('#displayLink').href=`../display/?event=${encodeURIComponent(eventId)}`;scheduleAutoAdvance();});
-backend.subscribeCollection(eventId,'slides',v=>{slides=v;renderState();scheduleAutoAdvance()});backend.subscribeCollection(eventId,'categories',v=>{categories=v;scheduleAutoAdvance();});backend.subscribeCollection(eventId,'graduates',v=>{graduates=v;fillSelect('#graduateSelect',v,'name')});backend.subscribeCollection(eventId,'awards',v=>{awards=v;fillSelect('#awardSelect',v,'name')});backend.subscribeCollection(eventId,'tracks',v=>{tracks=v;fillSelect('#trackSelect',v,'title')});backend.subscribeCollection(eventId,'schedule',v=>{schedule=v;document.querySelector('#scheduleStatus').textContent=`${v.filter(x=>x.enabled).length} enabled schedule action${v.filter(x=>x.enabled).length===1?'':'s'} · one-time executions are claimed transactionally.`});backend.subscribeRuntime(eventId,v=>{runtime=v;renderState();scheduleAutoAdvance();});
+
+backend.subscribeEvent(eventId,v=>{
+ event=v;
+ document.querySelector('#eventName').textContent=v?.name||'Event not found';
+ document.querySelector('#displayLink').href=`../display/?event=${encodeURIComponent(eventId)}`;
+ renderState();scheduleAutoAdvance();
+});
+backend.subscribeCollection(eventId,'slides',v=>{slides=v;renderState();scheduleAutoAdvance()});
+backend.subscribeCollection(eventId,'categories',v=>{categories=v;renderState();scheduleAutoAdvance()});
+backend.subscribeCollection(eventId,'graduates',v=>{graduates=v;fillSelect('#graduateSelect',v,'name')});
+backend.subscribeCollection(eventId,'awards',v=>{awards=v;fillSelect('#awardSelect',v,'name')});
+backend.subscribeCollection(eventId,'tracks',v=>{tracks=v;fillSelect('#trackSelect',v,'title');renderState()});
+backend.subscribeCollection(eventId,'schedule',v=>{
+ schedule=v;
+ document.querySelector('#scheduleStatus').textContent=`${v.filter(x=>x.enabled).length} enabled schedule action${v.filter(x=>x.enabled).length===1?'':'s'} · one-time executions are claimed transactionally.`;
+});
+backend.subscribeRuntime(eventId,v=>{runtime=v;renderState();scheduleAutoAdvance()});
+
 startScheduler({eventId,backend,getSnapshot:snap,onExecution:i=>document.querySelector('#scheduleStatus').textContent=`Executed: ${i.label||i.action}`});
-function fillSelect(sel,arr,label){const el=document.querySelector(sel),cur=el.value;el.innerHTML=arr.filter(x=>x.enabled!==false).map(x=>`<option value="${x.id}">${x[label]||x.id}</option>`).join('');if(arr.some(x=>x.id===cur))el.value=cur}
-function renderState(){if(!runtime)return;document.querySelector('#modeTitle').textContent=MODE_LABELS[runtime.mode]||runtime.mode;document.querySelector('#stateVersion').textContent=runtime.stateVersion??'—';const s=slides.find(x=>x.id===runtime.currentSlideId);document.querySelector('#currentSlide').textContent=s?`${String(s.order).padStart(2,'0')} · ${s.title}`:'No active slide';document.querySelectorAll('.mode-btn').forEach(b=>b.classList.toggle('active',b.dataset.mode===runtime.mode));document.querySelector('#clockToggle').textContent=runtime.clockVisible?'Hide Clock':'Show Clock';document.querySelector('#countdownToggle').textContent=runtime.countdownVisible?'Hide Countdown':'Show Countdown';document.querySelector('#muteBtn').textContent=runtime.musicMuted?'Unmute':'Mute';document.querySelector('#volume').value=Math.round((runtime.musicVolume??.35)*100)}
+
+function fillSelect(sel,arr,label){
+ const el=document.querySelector(sel),cur=el.value;
+ const enabled=arr.filter(x=>x.enabled!==false);
+ el.innerHTML=enabled.map(x=>`<option value="${x.id}">${x[label]||x.id}</option>`).join('');
+ if(enabled.some(x=>x.id===cur))el.value=cur;
+ else if(enabled.length)el.value=enabled[0].id;
+}
+function setToggle(id,on,onText,offText){
+ const el=document.querySelector(id);if(!el)return;
+ el.textContent=on?onText:offText;el.classList.toggle('active',!!on);
+}
+function renderState(){
+ if(!runtime)return;
+ document.querySelector('#modeTitle').textContent=MODE_LABELS[runtime.mode]||runtime.mode;
+ document.querySelector('#stateVersion').textContent=runtime.stateVersion??'—';
+ const s=slides.find(x=>x.id===runtime.currentSlideId);
+ document.querySelector('#currentSlide').textContent=s?`${String(s.order).padStart(2,'0')} · ${s.title}`:'No active slide';
+ document.querySelectorAll('.mode-btn').forEach(b=>b.classList.toggle('active',b.dataset.mode===runtime.mode));
+ setToggle('#clockToggle',runtime.clockVisible,'Hide Clock','Show Clock');
+ setToggle('#countdownToggle',runtime.countdownVisible,'Hide Countdown','Show Countdown');
+ setToggle('#overlayToggle',runtime.overlayVisible!==false,'Hide Overlay','Show Overlay');
+ setToggle('#captionsToggle',runtime.captionsVisible!==false,'Hide Captions','Show Captions');
+ setToggle('#brandToggle',runtime.brandVisible!==false,'Hide Branding','Show Branding');
+ setToggle('#motionToggle',runtime.motionEnabled!==false,'Stop Motion','Start Motion');
+ setToggle('#progressToggle',runtime.progressVisible!==false,'Hide Progress','Show Progress');
+ setToggle('#cinemaToggle',runtime.cinemaVisible!==false,'Hide Cinematic','Show Cinematic');
+ document.querySelector('#muteBtn').textContent=runtime.musicMuted?'Unmute':'Mute';
+ document.querySelector('#volume').value=Math.round((runtime.musicVolume??.35)*100);
+ if(event){
+   document.querySelector('#shuffleToggle').checked=event.shufflePlaylist===true;
+   document.querySelector('#loopToggle').checked=event.loopPlaylist!==false;
+   document.querySelector('#duckToggle').checked=event.duckSpecial!==false;
+ }
+ const nowTrack=tracks.find(t=>t.id===runtime.trackId);
+ document.querySelector('#musicNow').textContent=nowTrack?`Now: ${nowTrack.title}`:'No track selected';
+ if(runtime.trackId&&document.querySelector('#trackSelect').querySelector(`option[value="${CSS.escape(runtime.trackId)}"]`))document.querySelector('#trackSelect').value=runtime.trackId;
+}
 function currentSlides(mode=runtime?.mode){return activeSlides(slides,categories,mode)}
 function scheduleAutoAdvance(){
  clearTimeout(autoAdvanceTimer);
  if(!event||!runtime?.playing||!MODE_AUTO[runtime.mode])return;
- const list=currentSlides(runtime.mode);const current=list.find(x=>x.id===runtime.currentSlideId)||list[0];if(!current)return;
+ const list=currentSlides(runtime.mode),current=list.find(x=>x.id===runtime.currentSlideId)||list[0];
+ if(!current)return;
  const dur=(current.duration>0?current.duration:event.defaultDuration||10)*1000;
  const started=runtime.slideStartedAt instanceof Date?runtime.slideStartedAt.getTime():runtime.slideStartedAt?new Date(runtime.slideStartedAt).getTime():Date.now();
- const wait=Math.max(20,started+dur-Date.now());const version=runtime.stateVersion||0;
+ const wait=Math.max(20,started+dur-Date.now()),version=runtime.stateVersion||0;
  autoAdvanceTimer=setTimeout(async()=>{try{
    const latest=runtime;if(!latest||latest.stateVersion!==version||!latest.playing||!MODE_AUTO[latest.mode])return;
-   await backend.claimSchedule(eventId,`auto_${version}`,r=>{if((r.stateVersion||0)!==version||!r.playing||!MODE_AUTO[r.mode])return null;const freshList=currentSlides(r.mode);return Object.assign(r,actionPatch('slide:next','',r,{event,slides:freshList,slidesByMode:{[r.mode]:freshList}}))});
-  }catch(e){console.warn('auto advance',e)}},wait);
+   await backend.claimSchedule(eventId,`auto_${version}`,r=>{
+     if((r.stateVersion||0)!==version||!r.playing||!MODE_AUTO[r.mode])return null;
+     const freshList=currentSlides(r.mode);
+     return Object.assign(r,actionPatch('slide:next','',r,{event,slides:freshList,slidesByMode:{[r.mode]:freshList}}));
+   });
+ }catch(e){console.warn('auto advance',e)}},wait);
 }
-async function command(action,arg=''){if(!runtime)return;const modeLists={};for(const m of Object.keys(MODE_LABELS))modeLists[m]=currentSlides(m);await backend.mutateRuntime(eventId,r=>Object.assign(r,actionPatch(action,arg,r,{event,slides:modeLists[r.mode]||currentSlides(),slidesByMode:modeLists}))) }
-const modeGrid=document.querySelector('#modeGrid');modeGrid.innerHTML=Object.entries(MODE_LABELS).map(([k,v])=>`<button class="mode-btn" data-mode="${k}">${v}</button>`).join('');modeGrid.onclick=e=>{const b=e.target.closest('[data-mode]');if(b)command(`mode:${b.dataset.mode}`)};document.body.addEventListener('click',e=>{const b=e.target.closest('[data-action]');if(b)command(b.dataset.action)});
-document.querySelector('#clockToggle').onclick=()=>command(runtime.clockVisible?'clock:hide':'clock:show');document.querySelector('#countdownToggle').onclick=()=>command(runtime.countdownVisible?'countdown:hide':'countdown:show');document.querySelector('#showMessage').onclick=()=>command('message:show',document.querySelector('#messageInput').value);document.querySelector('#showGraduate').onclick=()=>command('graduate:show',document.querySelector('#graduateSelect').value);document.querySelector('#nextGraduate').onclick=()=>{if(!graduates.length)return;let i=graduates.findIndex(g=>g.id===runtime.specialId);i=(i+1)%graduates.length;document.querySelector('#graduateSelect').value=graduates[i].id;command('graduate:show',graduates[i].id)};document.querySelector('#stageAward').onclick=()=>command('award:stage',document.querySelector('#awardSelect').value);document.querySelector('#revealAward').onclick=()=>command('award:reveal',document.querySelector('#awardSelect').value);document.querySelector('#playTrack').onclick=()=>command('music:track',document.querySelector('#trackSelect').value);document.querySelector('#volume').oninput=e=>command('music:volume',+e.target.value/100);document.querySelector('#muteBtn').onclick=()=>command('music:mute',!runtime.musicMuted);document.querySelector('#emergencyHold').onclick=async()=>{await backend.mutateRuntime(eventId,r=>Object.assign(r,{playing:false,specialVisible:false,specialType:'none',musicCommand:'fade',musicCommandSeq:(r.musicCommandSeq||0)+1}));};document.querySelector('#fullscreenBtn').onclick=()=>document.documentElement.requestFullscreen?.();document.querySelector('#signOutBtn').onclick=()=>auth.signOut().then(()=>location.reload());document.querySelector('#wakeBtn').onclick=async()=>{try{wakeLock=await navigator.wakeLock?.request('screen');document.querySelector('#wakeBtn').textContent='Director Awake'}catch{document.querySelector('#wakeBtn').textContent='Wake Lock Unavailable'}};
+async function command(action,arg=''){
+ if(!runtime)return;
+ const modeLists={};for(const m of Object.keys(MODE_LABELS))modeLists[m]=currentSlides(m);
+ await backend.mutateRuntime(eventId,r=>Object.assign(r,actionPatch(action,arg,r,{event,slides:modeLists[r.mode]||currentSlides(),slidesByMode:modeLists})));
+}
+async function saveEventPatch(patch){if(!event)return;await backend.updateEvent(eventId,patch)}
+
+const modeGrid=document.querySelector('#modeGrid');
+modeGrid.innerHTML=Object.entries(MODE_LABELS).map(([k,v])=>`<button class="mode-btn" data-mode="${k}">${v}</button>`).join('');
+modeGrid.onclick=e=>{const b=e.target.closest('[data-mode]');if(b)command(`mode:${b.dataset.mode}`)};
+document.body.addEventListener('click',e=>{const b=e.target.closest('[data-action]');if(b)command(b.dataset.action)});
+
+document.querySelector('#clockToggle').onclick=()=>command(runtime.clockVisible?'clock:hide':'clock:show');
+document.querySelector('#countdownToggle').onclick=()=>command(runtime.countdownVisible?'countdown:hide':'countdown:show');
+document.querySelector('#overlayToggle').onclick=()=>command(runtime.overlayVisible!==false?'overlay:hide':'overlay:show');
+document.querySelector('#captionsToggle').onclick=()=>command(runtime.captionsVisible!==false?'captions:hide':'captions:show');
+document.querySelector('#brandToggle').onclick=()=>command(runtime.brandVisible!==false?'brand:hide':'brand:show');
+document.querySelector('#motionToggle').onclick=()=>command(runtime.motionEnabled!==false?'motion:hide':'motion:show');
+document.querySelector('#progressToggle').onclick=()=>command(runtime.progressVisible!==false?'progress:hide':'progress:show');
+document.querySelector('#cinemaToggle').onclick=()=>command(runtime.cinemaVisible!==false?'cinema:hide':'cinema:show');
+
+document.querySelector('#showMessage').onclick=()=>command('message:show',document.querySelector('#messageInput').value);
+document.querySelector('#showGraduate').onclick=()=>command('graduate:show',document.querySelector('#graduateSelect').value);
+document.querySelector('#nextGraduate').onclick=()=>{const list=graduates.filter(g=>g.enabled!==false);if(!list.length)return;let i=list.findIndex(g=>g.id===runtime.specialId);i=(i+1)%list.length;document.querySelector('#graduateSelect').value=list[i].id;command('graduate:show',list[i].id)};
+document.querySelector('#stageAward').onclick=()=>command('award:stage',document.querySelector('#awardSelect').value);
+document.querySelector('#revealAward').onclick=()=>command('award:reveal',document.querySelector('#awardSelect').value);
+
+function enabledTracks(){return tracks.filter(t=>t.enabled!==false)}
+function pickRelativeTrack(delta){
+ const list=enabledTracks();if(!list.length)return null;
+ if(event?.shufflePlaylist&&list.length>1){
+   const choices=list.filter(t=>t.id!==runtime?.trackId);
+   return choices[Math.floor(Math.random()*choices.length)]||list[0];
+ }
+ let i=list.findIndex(t=>t.id===runtime?.trackId);if(i<0)i=delta>0?-1:0;
+ return list[(i+delta+list.length)%list.length];
+}
+document.querySelector('#playTrack').onclick=()=>command('music:track',document.querySelector('#trackSelect').value);
+document.querySelector('#prevTrack').onclick=()=>{const t=pickRelativeTrack(-1);if(t){document.querySelector('#trackSelect').value=t.id;command('music:track',t.id)}};
+document.querySelector('#nextTrack').onclick=()=>{const t=pickRelativeTrack(1);if(t){document.querySelector('#trackSelect').value=t.id;command('music:track',t.id)}};
+document.querySelector('#volume').oninput=e=>command('music:volume',+e.target.value/100);
+document.querySelector('#muteBtn').onclick=()=>command('music:mute',!runtime.musicMuted);
+document.querySelector('#shuffleToggle').onchange=e=>saveEventPatch({shufflePlaylist:e.target.checked});
+document.querySelector('#loopToggle').onchange=e=>saveEventPatch({loopPlaylist:e.target.checked});
+document.querySelector('#duckToggle').onchange=e=>saveEventPatch({duckSpecial:e.target.checked});
+
+document.querySelector('#excludeCurrent').onclick=async()=>{
+ const current=slides.find(s=>s.id===runtime?.currentSlideId);if(!current)return;
+ if(!confirm(`Exclude “${current.title}” from the deck?`))return;
+ const list=currentSlides().filter(s=>s.id!==current.id);
+ if(list.length)await command('slide:goto',list[0].id);
+ await backend.putDoc(eventId,'slides',current.id,{...current,enabled:false,id:undefined});
+};
+
+document.querySelector('#emergencyHold').onclick=async()=>{
+ await backend.mutateRuntime(eventId,r=>Object.assign(r,{playing:false,specialVisible:false,specialType:'none',musicCommand:'fade',musicCommandSeq:(r.musicCommandSeq||0)+1}));
+};
+document.querySelector('#fullscreenBtn').onclick=()=>document.documentElement.requestFullscreen?.();
+document.querySelector('#signOutBtn').onclick=()=>auth.signOut().then(()=>location.reload());
+document.querySelector('#wakeBtn').onclick=async()=>{try{wakeLock=await navigator.wakeLock?.request('screen');document.querySelector('#wakeBtn').textContent='Director Awake'}catch{document.querySelector('#wakeBtn').textContent='Wake Lock Unavailable'}};
+
+addEventListener('keydown',e=>{
+ if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;
+ if(e.key==='ArrowLeft'){e.preventDefault();command('slide:prev')}
+ if(e.key==='ArrowRight'){e.preventDefault();command('slide:next')}
+ if(e.code==='Space'){e.preventDefault();command(runtime?.playing?'deck:pause':'deck:play')}
+ if(e.key.toLowerCase()==='r')command('deck:restart');
+ if(e.key.toLowerCase()==='o')command(runtime?.overlayVisible!==false?'overlay:hide':'overlay:show');
+ if(e.key.toLowerCase()==='m')command('music:mute',!runtime?.musicMuted);
+ if(e.key.toLowerCase()==='g')document.querySelector('#nextGraduate').click();
+ if(e.key.toLowerCase()==='a')document.querySelector('#revealAward').click();
+});
+
 setInterval(()=>document.querySelector('#liveClock').textContent=formatClock(new Date(),event?.clockFormat||'12'),1000);
