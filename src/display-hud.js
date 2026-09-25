@@ -15,7 +15,17 @@ export function createHudController(){
   function applyLayout(el,layout={}){
     const [x,y]=anchors[layout.anchor]||anchors['top-right'];
     const ox=Number(layout.x||0),oy=Number(layout.y||0),scale=Number(layout.scale||1);
-    el.style.left=`calc(${x} + ${ox}vw)`;el.style.top=`calc(${y} + ${oy}vh)`;
+    const left=x==='0%'
+      ? `calc(var(--safe-left) + 18px + ${ox}vw)`
+      : x==='100%'
+        ? `calc(100% - var(--safe-right) - 18px + ${ox}vw)`
+        : `calc(50% + ${ox}vw)`;
+    const top=y==='0%'
+      ? `calc(var(--safe-top) + 18px + ${oy}vh)`
+      : y==='100%'
+        ? `calc(100% - var(--safe-bottom) - 18px + ${oy}vh)`
+        : `calc(50% + ${oy}vh)`;
+    el.style.left=left;el.style.top=top;
     const tx=x==='0%'?'0':x==='100%'?'-100%':'-50%';
     const ty=y==='0%'?'0':y==='100%'?'-100%':'-50%';
     el.style.transform=`translate(${tx},${ty}) scale(${scale})`;
@@ -24,14 +34,14 @@ export function createHudController(){
 
   function setEvent(v){event=v;if(!v)return;applyLayout(clock,v.clockLayout);applyLayout(countdown,v.countdownLayout);document.querySelector('#countdownLabel').textContent=v.countdownLabel||'Ceremony Begins In'}
   function setPeople(g,a){graduates=g||[];awards=a||[];renderSpecial()}
-  function setRuntime(v){runtime=v;if(!v)return;clock.classList.toggle('hidden',!v.clockVisible);countdown.classList.toggle('hidden',!v.countdownVisible);renderSpecial()}
+  function setRuntime(v){runtime=v;if(!v)return;clock.classList.toggle('hidden',!v.clockVisible);countdown.classList.toggle('hidden',!v.countdownVisible);clock.setAttribute('aria-hidden',String(!v.clockVisible));countdown.setAttribute('aria-hidden',String(!v.countdownVisible));renderSpecial()}
 
   function mediaHtml(url,alt){
     return url?`<div class="special-media"><img src="${esc(url)}" alt="${esc(alt||'')}" referrerpolicy="no-referrer"></div>`:'';
   }
   function renderSpecial(){
     if(!runtime)return;
-    special.classList.toggle('hidden',!runtime.specialVisible);
+    special.classList.toggle('hidden',!runtime.specialVisible);special.setAttribute('aria-hidden',String(!runtime.specialVisible));
     special.classList.remove('award-staged','award-revealed','has-media');
     if(!runtime.specialVisible)return;
     const card=document.querySelector('#specialCard');
