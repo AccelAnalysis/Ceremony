@@ -7,7 +7,7 @@ export async function getBackend(){
  if(demoMode)return {backend:localBackend,auth:localAuth,mode:'demo'};
  if(backendPromise)return backendPromise;
  backendPromise=(async()=>{
-  const f=await getFirebase(); const {db,auth,api}=f;
+  const f=await getFirebase(); const {db,auth,storage,api}=f;
   const path=(eventId,...parts)=>api.doc(db,'events',eventId,...parts);
   const col=(eventId,name)=>api.collection(db,'events',eventId,name);
   const asDate=v=>v?.toDate?v.toDate():v?new Date(v):null;
@@ -56,6 +56,31 @@ export async function getBackend(){
    async putDoc(id,name,docId,data){const copy={...data};if(copy.runAt instanceof Date)copy.runAt=api.Timestamp.fromDate(copy.runAt);await api.setDoc(path(id,name,docId),copy,{merge:false})},
    async updateEvent(id,patch){const copy={...patch,updatedAt:api.serverTimestamp()};if('ceremonyStartAt'in copy)copy.ceremonyStartAt=copy.ceremonyStartAt?api.Timestamp.fromDate(new Date(copy.ceremonyStartAt)):null;await api.updateDoc(path(id),copy)},
    async deleteDoc(id,name,docId){await api.deleteDoc(path(id,name,docId))},
+   async uploadAudio(id,file,onProgress=()=>{}){
+    if(!file)throw new Error('Choose an audio file first.');
+    if(!String(file.type||'').startsWith('audio/'))throw new Error('Only audio files can be uploaded.');
+    const maxBytes=100*1024*1024;
+    if(file.size>maxBytes)throw new Error('Audio files must be 100 MB or smaller.');
+    const safeName=String(file.name||'audio').replace(/[^a-zA-Z0-9._-]+/g,'_').slice(-120);
+    const objectId=`${Date.now().toString(36)}_${Math.random().toString(36).slice(2,8)}_${safeName}`;
+    const storagePath=`events/${id}/audio/${objectId}`;
+    const ref=api.storageRef(storage,storagePath);
+    const task=api.uploadBytesResumable(ref,file,{contentType:file.type||'audio/mpeg',customMetadata:{eventId:id,uploaderUid:auth.currentUser.uid}});
+    await new Promise((resolve,reject)=>task.on('state_changed',snap=>{
+      const pct=snap.totalBytes?Math.round(snap.bytesTransferred/snap.totalBytes*100):0;
+      onProgress(pct,snap);
+    },reject,resolve));
+    const url=await api.getDownloadURL(ref);
+    return {url,storagePath};
+   },
+   async deleteStoredFile(storagePath){
+    if(!storagePath)return;
+    try{await api.deleteObject(api.storageRef(storage,storagePath))}catch(e){if(e?.code!=='storage/object-not-found')throw e}
+   },
+   async deleteTrack(id,track){
+    if(track?.storagePath)await backend.deleteStoredFile(track.storagePath);
+    await api.deleteDoc(path(id,'tracks',track.id));
+   },
    async mutateRuntime(id,mutator){let result=null;await api.runTransaction(db,async tx=>{const ref=path(id,'runtime','state');const snap=await tx.get(ref);const cur=snap.exists()?normalize(snap.data()):{};const next=mutator(structuredClone(cur));next.stateVersion=(cur.stateVersion||0)+1;next.updatedAt=api.serverTimestamp();next.updatedBy=auth.currentUser.uid;if(next.currentSlideId!==cur.currentSlideId||(!cur.playing&&next.playing))next.slideStartedAt=api.serverTimestamp();tx.set(ref,next,{merge:false});result=next});return result},
    async claimSchedule(id,executionId,mutator){let claimed=false;await api.runTransaction(db,async tx=>{const er=path(id,'scheduleExecutions',executionId),rr=path(id,'runtime','state');const [es,rs]=await Promise.all([tx.get(er),tx.get(rr)]);if(es.exists())return;const cur=rs.exists()?normalize(rs.data()):{};const next=mutator(structuredClone(cur));if(!next)return;next.stateVersion=(cur.stateVersion||0)+1;next.updatedAt=api.serverTimestamp();next.updatedBy=auth.currentUser.uid;if(next.currentSlideId!==cur.currentSlideId||(!cur.playing&&next.playing))next.slideStartedAt=api.serverTimestamp();tx.set(er,{executedAt:api.serverTimestamp(),actorUid:auth.currentUser.uid},{merge:false});tx.set(rr,next,{merge:false});claimed=true});return claimed}
   };
