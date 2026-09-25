@@ -1,1 +1,50 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Ceremony · Event Editor</title><link rel="stylesheet" href="../styles/base.css"><link rel="stylesheet" href="../styles/editor.css"></head><body class="app-shell"><header class="topbar"><div class="brand-lockup"><strong>CEREMONY</strong><span>Event Editor</span></div><span id="eventName" class="status-chip">Loading…</span><div class="spacer"></div><a class="btn" id="directorLink" target="_blank">Event Director</a><a class="btn" id="displayLink" target="_blank">Audience Display</a><button class="btn" id="signOutBtn">Sign out</button></header><main class="main-grid"><aside class="sidebar"><div class="nav-list" id="editorNav"><button class="active" data-panel="event">Event</button><button data-panel="slides">Slides</button><button data-panel="people">Graduates</button><button data-panel="awards">Awards</button><button data-panel="music">Music</button><button data-panel="schedule">Schedule</button><button data-panel="visual">Clock & Countdown</button><button data-panel="data">Setup / Data</button></div></aside><section class="editor-content"><div class="panel editor-panel" data-panel="event"></div><div class="panel editor-panel hidden" data-panel="slides"></div><div class="panel editor-panel hidden" data-panel="people"></div><div class="panel editor-panel hidden" data-panel="awards"></div><div class="panel editor-panel hidden" data-panel="music"></div><div class="panel editor-panel hidden" data-panel="schedule"></div><div class="panel editor-panel hidden" data-panel="visual"></div><div class="panel editor-panel hidden" data-panel="data"></div></section></main><script type="module" src="../src/editor.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B0D0E">
+<title>Ceremony · Event Editor</title>
+<link rel="stylesheet" href="../styles/base.css">
+<link rel="stylesheet" href="../styles/editor.css">
+</head>
+<body class="app-shell editor-shell">
+<header class="topbar editor-topbar">
+ <div class="brand-lockup"><strong>CEREMONY</strong><span>Event Editor</span></div>
+ <span id="eventName" class="status-chip">Loading…</span>
+ <div class="spacer"></div>
+ <a class="btn" id="directorLink" target="_blank" rel="noopener">Event Director</a>
+ <a class="btn" id="displayLink" target="_blank" rel="noopener">Audience Display</a>
+ <button class="btn" id="signOutBtn">Sign out</button>
+</header>
+<main class="main-grid editor-grid">
+ <aside class="sidebar editor-sidebar" aria-label="Editor sections">
+  <div class="nav-list" id="editorNav">
+   <div class="nav-group-label">Event Setup</div>
+   <button class="active" data-panel="event">Event</button>
+   <button data-panel="slides">Slides</button>
+   <div class="nav-group-label">Ceremony Content</div>
+   <button data-panel="people">Graduates</button>
+   <button data-panel="awards">Awards</button>
+   <button data-panel="music">Music</button>
+   <div class="nav-group-label">Automation</div>
+   <button data-panel="schedule">Schedule</button>
+   <button data-panel="visual">Visuals</button>
+   <div class="nav-group-label">System</div>
+   <button data-panel="data">Setup / Data</button>
+  </div>
+ </aside>
+ <section class="editor-content">
+  <div class="panel editor-panel" data-panel="event"></div>
+  <div class="panel editor-panel hidden" data-panel="slides"></div>
+  <div class="panel editor-panel hidden" data-panel="people"></div>
+  <div class="panel editor-panel hidden" data-panel="awards"></div>
+  <div class="panel editor-panel hidden" data-panel="music"></div>
+  <div class="panel editor-panel hidden" data-panel="schedule"></div>
+  <div class="panel editor-panel hidden" data-panel="visual"></div>
+  <div class="panel editor-panel hidden" data-panel="data"></div>
+ </section>
+</main>
+<script type="module" src="../src/editor.js"></script>
+</body>
+</html>

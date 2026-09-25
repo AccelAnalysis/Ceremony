@@ -1,15 +1,180 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Ceremony · Event Director</title><link rel="stylesheet" href="../styles/base.css"><link rel="stylesheet" href="../styles/control.css"></head><body class="app-shell">
-<header class="topbar"><div class="brand-lockup"><strong>CEREMONY</strong><span>Event Director</span></div><span id="eventName" class="status-chip">Loading…</span><span id="liveClock" class="status-chip"></span><div class="spacer"></div><a class="btn" id="displayLink" target="_blank">Audience Display</a><button class="btn" id="fullscreenBtn">Fullscreen</button><button class="btn" id="signOutBtn">Sign out</button></header>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B0D0E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ceremony Director">
+<title>Ceremony · Event Director</title>
+<link rel="stylesheet" href="../styles/base.css">
+<link rel="stylesheet" href="../styles/control.css">
+</head>
+<body class="app-shell director-shell">
+<header class="topbar director-topbar">
+ <div class="brand-lockup"><strong>CEREMONY</strong><span>Event Director</span></div>
+ <div class="director-event-meta">
+  <span id="eventName" class="status-chip">Loading…</span>
+  <span id="connectionChip" class="status-chip">Syncing…</span>
+ </div>
+ <div class="spacer"></div>
+ <span id="liveClock" class="status-chip live-clock"></span>
+ <div class="desktop-actions">
+  <a class="btn" id="displayLink" target="_blank" rel="noopener">Audience Display</a>
+  <button class="btn" id="fullscreenBtn">Fullscreen</button>
+  <button class="btn" id="signOutBtn">Sign out</button>
+ </div>
+</header>
+
 <main class="director-wrap">
-<section class="director-hero panel"><div><div class="kicker">Authoritative event state</div><h1 id="modeTitle">Pre-Show Loop</h1><p id="currentSlide">Waiting for state…</p></div><div class="state-version">STATE <b id="stateVersion">—</b></div></section>
-<section class="mode-grid" id="modeGrid"></section>
-<section class="control-grid">
- <div class="panel"><h2 class="section-title">Deck</h2><div class="director-buttons"><button class="btn" data-action="slide:prev">◀ Previous</button><button class="btn primary" data-action="deck:play">Play</button><button class="btn" data-action="deck:pause">Pause</button><button class="btn" data-action="slide:next">Next ▶</button></div><div class="toolbar" style="margin-top:12px"><button class="btn" data-action="deck:restart">Restart</button><button class="btn" id="excludeCurrent">Exclude Current</button><button class="btn" id="clockToggle">Clock</button><button class="btn" id="countdownToggle">Countdown</button></div></div>
- <div class="panel"><h2 class="section-title">Quick Message</h2><div class="field"><input id="messageInput" value="Please Take Your Seats"></div><div class="toolbar" style="margin-top:10px"><button class="btn primary" id="showMessage">Show</button><button class="btn" data-action="message:hide">Clear</button></div></div>
- <div class="panel"><h2 class="section-title">Graduate Recognition</h2><div class="field"><select id="graduateSelect"></select></div><div class="toolbar" style="margin-top:10px"><button class="btn primary" id="showGraduate">Show Graduate</button><button class="btn" id="prevGraduate">Previous</button><button class="btn" id="nextGraduate">Next</button><button class="btn" data-action="graduate:hide">Hide</button></div></div>
- <div class="panel"><h2 class="section-title">Award Reveal</h2><div class="field"><select id="awardSelect"></select></div><div class="toolbar" style="margin-top:10px"><button class="btn" id="stageAward">Stage</button><button class="btn primary" id="revealAward">Reveal</button><button class="btn" data-action="award:hide">Hide</button></div></div>
- <div class="panel span2"><h2 class="section-title">Music</h2><div class="music-grid"><button class="btn" id="prevTrack">◀ Track</button><select id="trackSelect"></select><button class="btn primary" id="playTrack">Play</button><button class="btn" id="nextTrack">Track ▶</button><button class="btn" data-action="music:pause">Pause</button><button class="btn" data-action="music:fade">Fade out</button><label>Volume <input id="volume" type="range" min="0" max="100" value="35"></label><button class="btn" id="muteBtn">Mute</button></div><div class="toolbar music-options" style="margin-top:12px"><label class="check"><input id="shuffleToggle" type="checkbox"> Shuffle Next</label><label class="check"><input id="loopToggle" type="checkbox"> Loop Track</label><label class="check"><input id="duckToggle" type="checkbox"> Duck on Recognition</label><span id="musicNow" class="muted"></span></div></div>
- <div class="panel span2"><h2 class="section-title">Audience Visual Layers</h2><div class="visual-grid"><button class="btn" id="overlayToggle">Overlay</button><button class="btn" id="captionsToggle">Captions</button><button class="btn" id="brandToggle">Branding</button><button class="btn" id="motionToggle">Motion</button><button class="btn" id="progressToggle">Progress</button><button class="btn" id="cinemaToggle">Cinematic</button></div><p class="muted" style="margin-top:10px">Global opacity and cinematic intensity are configured in Event Editor → Visuals. These buttons are live visibility overrides.</p></div>
- <div class="panel span2"><h2 class="section-title">Schedule & Display</h2><div id="scheduleStatus" class="notice">Loading schedule…</div><div class="toolbar" style="margin-top:10px"><button class="btn danger" id="emergencyHold">Emergency Hold</button><button class="btn" id="wakeBtn">Keep Director Awake</button></div><div class="muted" style="margin-top:10px">Keyboard: ←/→ slides · Space play/pause · R restart · O overlay · M mute · G next graduate · A reveal award.</div></div>
-</section>
-</main><script type="module" src="../src/director.js"></script></body></html>
+ <section class="director-status panel" aria-label="Live event status">
+  <div class="director-status-copy">
+   <div class="kicker">Live control</div>
+   <button class="mode-picker" id="modePickerBtn" type="button" aria-haspopup="dialog" aria-expanded="false">
+    <span id="modePickerLabel">Pre-Show Loop</span><span aria-hidden="true">⌄</span>
+   </button>
+   <h1 id="modeTitle">Pre-Show Loop</h1>
+   <p id="currentSlide">Waiting for state…</p>
+   <div class="next-cue">
+    <span>Next cue</span>
+    <strong id="nextCue">No scheduled cue</strong>
+   </div>
+  </div>
+  <div class="director-status-actions">
+   <button class="btn danger hold-btn" id="emergencyHold">Hold Event</button>
+   <div class="state-version">STATE <b id="stateVersion">—</b></div>
+  </div>
+ </section>
+
+ <section class="mode-grid desktop-mode-grid" id="modeGrid" aria-label="Ceremony mode"></section>
+
+ <div class="director-views">
+  <section class="director-view active" data-view-panel="live" aria-label="Live controls">
+   <div class="panel">
+    <div class="panel-heading-row"><h2 class="section-title">Presentation</h2><span id="playState" class="status-chip">Paused</span></div>
+    <div class="director-buttons desktop-transport">
+     <button class="btn" data-action="slide:prev">Previous</button>
+     <button class="btn primary" data-play-toggle>Play</button>
+     <button class="btn" data-action="slide:next">Next</button>
+    </div>
+    <div class="live-shortcuts">
+     <button class="btn" id="clockToggle">Show Clock</button>
+     <button class="btn" id="countdownToggle">Show Countdown</button>
+     <button class="btn" data-action="deck:restart">Restart Deck</button>
+     <button class="btn" id="excludeCurrent">Exclude Current</button>
+    </div>
+   </div>
+
+   <div class="panel">
+    <h2 class="section-title">Audience Message</h2>
+    <div class="message-compose">
+     <div class="field"><label for="messageInput">Message</label><input id="messageInput" value="Please Take Your Seats"></div>
+     <button class="btn primary" id="showMessage">Show</button>
+     <button class="btn" data-action="message:hide">Clear</button>
+    </div>
+   </div>
+
+   <div class="panel live-visuals">
+    <h2 class="section-title">Audience Layers</h2>
+    <div class="visual-grid">
+     <button class="btn" id="overlayToggle">Overlay</button>
+     <button class="btn" id="captionsToggle">Captions</button>
+     <button class="btn" id="brandToggle">Branding</button>
+     <button class="btn" id="motionToggle">Motion</button>
+     <button class="btn" id="progressToggle">Progress</button>
+     <button class="btn" id="cinemaToggle">Cinematic</button>
+    </div>
+   </div>
+  </section>
+
+  <section class="director-view" data-view-panel="people" aria-label="People controls">
+   <div class="panel">
+    <h2 class="section-title">Graduate Recognition</h2>
+    <div class="field"><label for="graduateSelect">Graduate</label><select id="graduateSelect"></select></div>
+    <div class="action-grid">
+     <button class="btn" id="prevGraduate">Previous</button>
+     <button class="btn primary" id="showGraduate">Show Graduate</button>
+     <button class="btn" id="nextGraduate">Next</button>
+     <button class="btn" data-action="graduate:hide">Hide</button>
+    </div>
+   </div>
+   <div class="panel">
+    <h2 class="section-title">Award Reveal</h2>
+    <div class="field"><label for="awardSelect">Award</label><select id="awardSelect"></select></div>
+    <div class="action-grid three">
+     <button class="btn" id="stageAward">Stage</button>
+     <button class="btn primary" id="revealAward">Reveal</button>
+     <button class="btn" data-action="award:hide">Hide</button>
+    </div>
+   </div>
+  </section>
+
+  <section class="director-view" data-view-panel="audio" aria-label="Audio controls">
+   <div class="panel">
+    <div class="panel-heading-row"><h2 class="section-title">Music</h2><span id="musicNow" class="muted"></span></div>
+    <div class="field"><label for="trackSelect">Track</label><select id="trackSelect"></select></div>
+    <div class="audio-transport">
+     <button class="btn" id="prevTrack">Previous</button>
+     <button class="btn primary" id="playTrack">Play Track</button>
+     <button class="btn" id="nextTrack">Next</button>
+     <button class="btn" data-action="music:pause">Pause</button>
+     <button class="btn" data-action="music:fade">Fade Out</button>
+     <button class="btn" id="muteBtn">Mute</button>
+    </div>
+    <label class="volume-row">Volume <input id="volume" type="range" min="0" max="100" value="35"></label>
+    <div class="music-options">
+     <label class="check"><input id="shuffleToggle" type="checkbox"> Shuffle next</label>
+     <label class="check"><input id="loopToggle" type="checkbox"> Loop track</label>
+     <label class="check"><input id="duckToggle" type="checkbox"> Duck on recognition</label>
+    </div>
+   </div>
+  </section>
+
+  <section class="director-view" data-view-panel="more" aria-label="More controls">
+   <div class="panel">
+    <h2 class="section-title">Schedule</h2>
+    <div id="scheduleStatus" class="notice">Loading schedule…</div>
+   </div>
+   <div class="panel">
+    <h2 class="section-title">Director</h2>
+    <div class="more-actions">
+     <button class="btn" id="wakeBtn">Keep Director Awake</button>
+     <a class="btn" id="displayLinkMobile" target="_blank" rel="noopener">Audience Display</a>
+     <button class="btn" id="fullscreenBtnMobile">Fullscreen</button>
+     <button class="btn" id="signOutBtnMobile">Sign out</button>
+    </div>
+    <div class="diagnostics">
+     <div><span>Runtime state</span><strong id="stateVersionMore">—</strong></div>
+     <div><span>Browser network</span><strong id="networkStatus">—</strong></div>
+    </div>
+    <p class="muted keyboard-help">Keyboard: ←/→ slides · Space play/pause · R restart · O overlay · M mute · G next graduate · A reveal award.</p>
+   </div>
+  </section>
+ </div>
+</main>
+
+<div class="mode-sheet" id="modeSheet" aria-hidden="true">
+ <button class="mode-sheet-backdrop" type="button" data-close-mode aria-label="Close mode picker"></button>
+ <div class="mode-sheet-card" role="dialog" aria-modal="true" aria-labelledby="modeSheetTitle">
+  <div class="mode-sheet-head"><strong id="modeSheetTitle">Ceremony Mode</strong><button class="btn compact" type="button" data-close-mode>Done</button></div>
+  <div class="mode-grid mobile-mode-grid" id="modeSheetGrid"></div>
+ </div>
+</div>
+
+<div class="mobile-transport" aria-label="Presentation controls">
+ <button class="transport-btn" data-action="slide:prev" aria-label="Previous slide"><span aria-hidden="true">‹</span><small>Previous</small></button>
+ <button class="transport-btn primary" data-play-toggle aria-label="Play presentation"><span class="transport-icon" aria-hidden="true">▶</span><small>Play</small></button>
+ <button class="transport-btn" data-action="slide:next" aria-label="Next slide"><span aria-hidden="true">›</span><small>Next</small></button>
+</div>
+
+<nav class="director-tabbar" aria-label="Director sections">
+ <button class="director-tab active" data-director-tab="live" aria-selected="true"><span aria-hidden="true">●</span><small>Live</small></button>
+ <button class="director-tab" data-director-tab="people" aria-selected="false"><span aria-hidden="true">◎</span><small>People</small></button>
+ <button class="director-tab" data-director-tab="audio" aria-selected="false"><span aria-hidden="true">♪</span><small>Audio</small></button>
+ <button class="director-tab" data-director-tab="more" aria-selected="false"><span aria-hidden="true">•••</span><small>More</small></button>
+</nav>
+
+<script type="module" src="../src/director.js"></script>
+</body>
+</html>
