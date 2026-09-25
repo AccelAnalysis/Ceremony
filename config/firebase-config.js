@@ -7,5 +7,5 @@ export const projectDefaults = Object.freeze({
   messagingSenderId: "359205123874",
   appId: "1:359205123874:web:8f2cfd2714478cf9c1577b",
   measurementId: "G-6WXGXBD2BV",
-  apiKey: ""
+  apiKey: "AIzaSyBNHXvOdQGv_1ji9OGOXeK4qRAo68oawH0"
 });
