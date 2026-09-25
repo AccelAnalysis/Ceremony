@@ -137,7 +137,7 @@ document.querySelector('#excludeCurrent').onclick=async()=>{
  if(!confirm(`Exclude “${current.title}” from the deck?`))return;
  const list=currentSlides().filter(s=>s.id!==current.id);
  if(list.length)await command('slide:goto',list[0].id);
- await backend.putDoc(eventId,'slides',current.id,{...current,enabled:false,id:undefined});
+ const {id:slideId,...slideData}=current;await backend.putDoc(eventId,'slides',slideId,{...slideData,enabled:false});
 };
 
 document.querySelector('#emergencyHold').onclick=async()=>{
