@@ -21,7 +21,7 @@ export function createStageRenderer(stage){
         stage.appendChild(el);
         els.set(s.id,el);
       }
-      el.className=`slide ${s.align||'left'} effect-${s.effect||'vignette'}${runtime?.motionEnabled===false?'':' motion'}`;el.dataset.transition=s.transition||'fade';
+      el.className=`slide ${s.align||'left'} effect-${s.effect||'vignette'}${runtime?.motionEnabled===false?'':` motion motion-${s.motion||'a'}`}`;el.dataset.transition=s.transition||'fade';
       let media=el.querySelector('.media');
       if(s.mediaType==='video'){
         if(media.tagName!=='VIDEO'){
@@ -67,7 +67,11 @@ export function createStageRenderer(stage){
 
   function applyRuntime(next,event){
     const prev=runtime;runtime=next;
-    for(const el of els.values())el.classList.toggle('motion',next.motionEnabled!==false);
+    for(const el of els.values()){
+      const s=slides.find(x=>x.id===el.dataset.id);
+      el.classList.toggle('motion',next.motionEnabled!==false);
+      for(const m of ['a','b','c','d'])el.classList.toggle(`motion-${m}`,next.motionEnabled!==false&&(s?.motion||'a')===m);
+    }
     if(next.currentSlideId!==prev?.currentSlideId)show(next.currentSlideId,event,false);
   }
 
