@@ -18,6 +18,7 @@ if(slideCount!==30)throw new Error(`Expected 30 seed slides, found ${slideCount}
 
 const stage=fs.readFileSync(new URL('src/display-stage.js',root),'utf8');
 if(!stage.includes('clearTimeout(transitionTimer)'))throw new Error('Transition cancellation missing');
+if(!stage.includes("v.autoplay=false")||!stage.includes("oldVideo.pause()"))throw new Error('Inactive video lifecycle control missing');
 for(const transition of ['zoom','left','right','up','blur','wipe']){
   if(!stage.includes(`enter-${transition}`))throw new Error(`Transition ${transition} missing`);
 }
@@ -26,6 +27,14 @@ const display=fs.readFileSync(new URL('src/display.js',root),'utf8');
 if(display.includes('claimSchedule('))throw new Error('Audience Display must not execute the authoritative schedule');
 if(!display.includes('cinema-off'))throw new Error('Live cinematic visibility missing');
 if(!display.includes('keepAwakeBtn'))throw new Error('Audience wake-lock control missing');
+if(!display.includes('display-chrome-visible')||!display.includes('cursor-hidden'))throw new Error('Audience operator chrome auto-hide missing');
+
+const displayCss=fs.readFileSync(new URL('styles/display.css',root),'utf8');
+if(!displayCss.includes('.display-setup')||!displayCss.includes('opacity:0'))throw new Error('Audience setup control must be invisible at rest');
+if(!displayCss.includes('prefers-reduced-motion'))throw new Error('Audience reduced-motion support missing');
+
+const displayHud=fs.readFileSync(new URL('src/display-hud.js',root),'utf8');
+if(!displayHud.includes('var(--safe-left)')||!displayHud.includes('var(--safe-bottom)'))throw new Error('Audience HUD safe-area positioning missing');
 
 const director=fs.readFileSync(new URL('src/director.js',root),'utf8');
 if(!director.includes('auto_')||!director.includes('scheduleAutoAdvance'))throw new Error('Director auto-advance authority missing');
