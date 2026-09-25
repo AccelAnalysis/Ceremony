@@ -1,0 +1,161 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    // events/{eventId}: event configuration and ownerUid.
+    // events/{eventId}/runtime/state: authoritative live event state.
+    // events/{eventId}/slides/{slideId}: slide/media configuration.
+    // events/{eventId}/categories/{categoryId}: conditional deck categories.
+    // events/{eventId}/graduates/{graduateId}: recognition records.
+    // events/{eventId}/awards/{awardId}: award reveal records.
+    // events/{eventId}/tracks/{trackId}: audio metadata/URLs.
+    // events/{eventId}/schedule/{cueId}: time-aware event cues.
+    // events/{eventId}/scheduleExecutions/{executionId}: idempotency claims.
+
+    function isAuthenticated() { return request.auth != null; }
+    function eventPath(eventId) { return /databases/$(database)/documents/events/$(eventId); }
+    function eventExists(eventId) { return exists(eventPath(eventId)); }
+    function isOwner(eventId) {
+      return isAuthenticated() && eventExists(eventId) && get(eventPath(eventId)).data.ownerUid == request.auth.uid;
+    }
+    function isShortString(v, max) { return v is string && v.size() <= max; }
+    function isUrlOrBlank(v) {
+      return v is string && v.size() <= 2048 && (v == '' || v.matches('^https?://.*'));
+    }
+    function isNumberIn(v, lo, hi) { return v is number && v >= lo && v <= hi; }
+    function uidUnchanged() { return request.resource.data.ownerUid == resource.data.ownerUid; }
+    function uidNotModified() { return uidUnchanged(); }
+    function eventImmutableFieldsUnchanged() { return request.resource.data.ownerUid == resource.data.ownerUid && request.resource.data.createdAt == resource.data.createdAt; }
+
+    function validLayout(m) {
+      return m is map &&
+        m.keys().hasOnly(['anchor','x','y','scale','bgOpacity']) &&
+        isShortString(m.anchor, 20) &&
+        m.anchor in ['top-left','top-center','top-right','center-left','center','center-right','bottom-left','bottom-center','bottom-right'] &&
+        isNumberIn(m.x, -50, 50) && isNumberIn(m.y, -50, 50) &&
+        isNumberIn(m.scale, 0.25, 3) && isNumberIn(m.bgOpacity, 0, 1);
+    }
+    function validModeTracks(m) {
+      return m is map && m.keys().hasOnly(['pre','ceremony','graduates','awards','post']) &&
+        isShortString(m.pre,120) && isShortString(m.ceremony,120) && isShortString(m.graduates,120) &&
+        isShortString(m.awards,120) && isShortString(m.post,120);
+    }
+    function isValidEvent(d) {
+      return d.keys().hasOnly(['name','status','defaultDuration','transitionSeconds','overlayOpacity','cinemaIntensity','crossfadeSeconds','countdownLabel','clockFormat','scheduleEnabled','catchUp','ceremonyStartAt','autoCueMusic','clockLayout','countdownLayout','modeTrackIds','ownerUid','createdAt','updatedAt']) &&
+        d.keys().hasAll(['name','status','defaultDuration','transitionSeconds','overlayOpacity','countdownLabel','clockFormat','scheduleEnabled','catchUp','autoCueMusic','clockLayout','countdownLayout','modeTrackIds','ownerUid']) &&
+        isShortString(d.name,120) && d.status in ['draft','live','archived'] &&
+        isNumberIn(d.defaultDuration,1,300) && isNumberIn(d.transitionSeconds,0,10) &&
+        isNumberIn(d.overlayOpacity,0,1) && (!('cinemaIntensity' in d) || isNumberIn(d.cinemaIntensity,0,1)) &&
+        (!('crossfadeSeconds' in d) || isNumberIn(d.crossfadeSeconds,0.1,30)) &&
+        isShortString(d.countdownLabel,100) && d.clockFormat in ['12','24'] &&
+        d.scheduleEnabled is bool && d.catchUp is bool && d.autoCueMusic is bool &&
+        (!('ceremonyStartAt' in d) || d.ceremonyStartAt == null || d.ceremonyStartAt is timestamp) &&
+        validLayout(d.clockLayout) && validLayout(d.countdownLayout) && validModeTracks(d.modeTrackIds) &&
+        d.ownerUid is string && d.ownerUid.size() >= 1 && d.ownerUid.size() <= 128 &&
+        (!('createdAt' in d) || d.createdAt is timestamp) && (!('updatedAt' in d) || d.updatedAt is timestamp);
+    }
+
+    match /events/{eventId} {
+      allow create: if isAuthenticated() && request.resource.data.ownerUid == request.auth.uid && isValidEvent(request.resource.data);
+      allow read: if isOwner(eventId);
+      allow update: if isOwner(eventId) && eventImmutableFieldsUnchanged() && isValidEvent(request.resource.data);
+      allow delete: if isOwner(eventId);
+    }
+
+    function validModes(m) {
+      return m is map && m.keys().hasOnly(['pre','ceremony','graduates','awards','post']) &&
+        m.pre is bool && m.ceremony is bool && m.graduates is bool && m.awards is bool && m.post is bool;
+    }
+    function isValidSlide(d) {
+      return d.keys().hasOnly(['order','eyebrow','title','sub','mediaType','mediaUrl','creditUrl','align','position','transition','motion','effect','duration','enabled','categoryId','modes']) &&
+        d.keys().hasAll(['order','eyebrow','title','sub','mediaType','mediaUrl','align','position','transition','effect','duration','enabled','categoryId','modes']) &&
+        isNumberIn(d.order,0,10000) && isShortString(d.eyebrow,100) && isShortString(d.title,160) && isShortString(d.sub,600) &&
+        d.mediaType in ['image','video'] && isUrlOrBlank(d.mediaUrl) && (!('creditUrl' in d) || isUrlOrBlank(d.creditUrl)) &&
+        d.align in ['left','center','right'] && isShortString(d.position,80) &&
+        d.transition in ['fade','zoom','left','right','up','blur','wipe'] && (!('motion' in d) || isShortString(d.motion,20)) &&
+        d.effect in ['vignette','goldSweep','lightSweep','focusPulse'] && isNumberIn(d.duration,0,300) && d.enabled is bool &&
+        isShortString(d.categoryId,120) && validModes(d.modes);
+    }
+    function isValidCategory(d) {
+      return d.keys().hasOnly(['order','name','enabled']) && d.keys().hasAll(['order','name','enabled']) &&
+        isNumberIn(d.order,0,10000) && isShortString(d.name,120) && d.enabled is bool;
+    }
+    function isValidGraduate(d) {
+      return d.keys().hasOnly(['order','enabled','name','program','k9','statement','photoUrl']) && d.keys().hasAll(['order','enabled','name','program','k9','statement','photoUrl']) &&
+        isNumberIn(d.order,0,10000) && d.enabled is bool && isShortString(d.name,160) && isShortString(d.program,300) &&
+        isShortString(d.k9,200) && isShortString(d.statement,1000) && isUrlOrBlank(d.photoUrl);
+    }
+    function isValidAward(d) {
+      return d.keys().hasOnly(['order','enabled','name','recipient','citation','imageUrl']) && d.keys().hasAll(['order','enabled','name','recipient','citation','imageUrl']) &&
+        isNumberIn(d.order,0,10000) && d.enabled is bool && isShortString(d.name,200) && isShortString(d.recipient,200) &&
+        isShortString(d.citation,1000) && isUrlOrBlank(d.imageUrl);
+    }
+    function isValidTrack(d) {
+      return d.keys().hasOnly(['order','enabled','title','url']) && d.keys().hasAll(['order','enabled','title','url']) &&
+        isNumberIn(d.order,0,10000) && d.enabled is bool && isShortString(d.title,200) && isUrlOrBlank(d.url);
+    }
+    function isValidSchedule(d) {
+      return d.keys().hasOnly(['order','label','kind','runAt','timeOfDay','action','argument','enabled','catchUp']) &&
+        d.keys().hasAll(['order','label','kind','action','argument','enabled','catchUp']) &&
+        isNumberIn(d.order,0,10000) && isShortString(d.label,160) && d.kind in ['once','daily'] &&
+        (!('runAt' in d) || d.runAt == null || d.runAt is timestamp) && (!('timeOfDay' in d) || isShortString(d.timeOfDay,8)) &&
+        isShortString(d.action,80) && isShortString(d.argument,1000) && d.enabled is bool && d.catchUp is bool;
+    }
+    function isValidRuntime(d) {
+      return d.keys().hasOnly(['mode','currentSlideId','playing','overlayVisible','captionsVisible','brandVisible','progressVisible','motionEnabled','clockVisible','countdownVisible','specialType','specialId','specialVisible','messageText','awardRevealed','trackId','musicCommand','musicCommandSeq','musicVolume','musicMuted','stateVersion','slideStartedAt','updatedAt','updatedBy']) &&
+        d.keys().hasAll(['mode','currentSlideId','playing','overlayVisible','captionsVisible','brandVisible','progressVisible','motionEnabled','clockVisible','countdownVisible','specialType','specialId','specialVisible','messageText','awardRevealed','trackId','musicCommand','musicCommandSeq','musicVolume','musicMuted','stateVersion','slideStartedAt','updatedBy']) &&
+        d.mode in ['pre','ceremony','graduates','awards','post'] && isShortString(d.currentSlideId,120) && d.playing is bool &&
+        d.overlayVisible is bool && d.captionsVisible is bool && d.brandVisible is bool && d.progressVisible is bool && d.motionEnabled is bool &&
+        d.clockVisible is bool && d.countdownVisible is bool && d.specialType in ['none','message','graduate','award'] &&
+        isShortString(d.specialId,120) && d.specialVisible is bool && isShortString(d.messageText,1000) && d.awardRevealed is bool &&
+        isShortString(d.trackId,120) && d.musicCommand in ['play','pause','fade','stop'] && d.musicCommandSeq is int && d.musicCommandSeq >= 0 &&
+        isNumberIn(d.musicVolume,0,1) && d.musicMuted is bool && d.stateVersion is int && d.stateVersion >= 0 &&
+        d.updatedBy is string && d.updatedBy == request.auth.uid && d.slideStartedAt is timestamp && (!('updatedAt' in d) || d.updatedAt is timestamp);
+    }
+
+    match /events/{eventId}/slides/{docId} {
+      allow read: if isOwner(eventId);
+      allow create, update: if isOwner(eventId) && isValidSlide(request.resource.data);
+      allow delete: if isOwner(eventId);
+    }
+    match /events/{eventId}/categories/{docId} {
+      allow read: if isOwner(eventId);
+      allow create, update: if isOwner(eventId) && isValidCategory(request.resource.data);
+      allow delete: if isOwner(eventId);
+    }
+    match /events/{eventId}/graduates/{docId} {
+      allow read: if isOwner(eventId);
+      allow create, update: if isOwner(eventId) && isValidGraduate(request.resource.data);
+      allow delete: if isOwner(eventId);
+    }
+    match /events/{eventId}/awards/{docId} {
+      allow read: if isOwner(eventId);
+      allow create, update: if isOwner(eventId) && isValidAward(request.resource.data);
+      allow delete: if isOwner(eventId);
+    }
+    match /events/{eventId}/tracks/{docId} {
+      allow read: if isOwner(eventId);
+      allow create, update: if isOwner(eventId) && isValidTrack(request.resource.data);
+      allow delete: if isOwner(eventId);
+    }
+    match /events/{eventId}/schedule/{docId} {
+      allow read: if isOwner(eventId);
+      allow create, update: if isOwner(eventId) && isValidSchedule(request.resource.data);
+      allow delete: if isOwner(eventId);
+    }
+    match /events/{eventId}/runtime/{docId} {
+      allow read: if isOwner(eventId);
+      allow create, update: if isOwner(eventId) && docId == 'state' && isValidRuntime(request.resource.data);
+      allow delete: if false;
+    }
+    match /events/{eventId}/scheduleExecutions/{docId} {
+      allow read: if isOwner(eventId);
+      allow create: if isOwner(eventId) && request.resource.data.keys().hasOnly(['executedAt','actorUid']) && request.resource.data.actorUid == request.auth.uid && request.resource.data.executedAt is timestamp;
+      allow update, delete: if false;
+    }
+
+    match /{document=**} { allow read, write: if false; }
+  }
+}
