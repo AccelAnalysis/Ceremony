@@ -5,7 +5,8 @@ import {esc} from './utils.js';
 export async function mountAuthGate({title='Ceremony',subtitle='Sign in to continue',allowSignUp=true}={}){
  const gate=document.createElement('section');gate.className='auth-screen';gate.innerHTML=`<div class="auth-card"><div class="brand-lockup"><strong>CEREMONY</strong><span>Firebase event system</span></div><h1>${esc(title)}</h1><p>${esc(subtitle)}</p><div id="authError"></div><div class="stack"><div class="field"><label>Email</label><input id="authEmail" type="email" autocomplete="username"></div><div class="field"><label>Password</label><input id="authPassword" type="password" autocomplete="current-password"></div></div><div class="auth-actions"><button class="btn primary" id="signInBtn">Sign in</button>${allowSignUp?'<button class="btn" id="signUpBtn">Create account</button>':''}</div><div class="divider"></div><button class="btn" id="firebaseSetupBtn">Firebase web config</button>${demoMode?'<div class="notice" style="margin-top:12px">Demo mode is active. Firebase is bypassed on this device.</div>':''}</div>`;document.body.appendChild(gate);
  if(demoMode){const {auth}=await getBackend();gate.remove();return auth.currentUser}
- const cfg=getFirebaseConfig();if(!isFirebaseConfigured(cfg)) showConfigModal();
+ const cfg=getFirebaseConfig();
+ if(!isFirebaseConfigured(cfg)){showConfigModal();return new Promise(()=>{});}
  const {auth}=await getBackend().catch(err=>{showError(err.message);throw err});
  return new Promise(resolve=>{
   let done=false;const off=auth.onChange(user=>{if(user&&!done){done=true;off?.();gate.remove();resolve(user)}});
