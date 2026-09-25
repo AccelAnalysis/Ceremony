@@ -21,7 +21,7 @@ export function createStageRenderer(stage){
         stage.appendChild(el);
         els.set(s.id,el);
       }
-      el.className=`slide ${s.align||'left'} effect-${s.effect||'vignette'}${runtime?.motionEnabled===false?'':' motion'}`;
+      el.className=`slide ${s.align||'left'} effect-${s.effect||'vignette'}${runtime?.motionEnabled===false?'':' motion'}`;el.dataset.transition=s.transition||'fade';
       let media=el.querySelector('.media');
       if(s.mediaType==='video'){
         if(media.tagName!=='VIDEO'){
@@ -56,10 +56,11 @@ export function createStageRenderer(stage){
     const ms=(event?.transitionSeconds??1.4)*1000;
     document.documentElement.style.setProperty('--transition',`${ms}ms`);
     if(outgoing&&outgoing!==incoming&&!immediate){
-      outgoing.classList.add('leaving');incoming.classList.add('active');
-      transitionTimer=setTimeout(()=>{if(seq!==transitionSeq)return;outgoing.classList.remove('active','leaving')},ms+50);
+      const transition=incoming.dataset.transition||'fade';
+      outgoing.classList.add('leaving');incoming.classList.add('active',`enter-${transition}`);
+      transitionTimer=setTimeout(()=>{if(seq!==transitionSeq)return;outgoing.classList.remove('active','leaving');incoming.classList.remove(`enter-${transition}`)},ms+50);
     }else{
-      for(const el of els.values())el.classList.remove('active','leaving');
+      for(const el of els.values()){el.classList.remove('active','leaving','enter-fade','enter-zoom','enter-left','enter-right','enter-up','enter-blur','enter-wipe')}
       incoming.classList.add('active');
     }
   }
