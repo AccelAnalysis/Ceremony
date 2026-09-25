@@ -26,7 +26,7 @@ export function createStageRenderer(stage){
       if(s.mediaType==='video'){
         if(media.tagName!=='VIDEO'){
           const v=document.createElement('video');
-          v.className='media';v.autoplay=true;v.muted=true;v.loop=true;v.playsInline=true;
+          v.className='media';v.autoplay=false;v.muted=true;v.loop=true;v.playsInline=true;v.preload='metadata';
           media.replaceWith(v);media=v;
         }
         if(media.src!==s.mediaUrl)media.src=s.mediaUrl||'';
@@ -55,12 +55,17 @@ export function createStageRenderer(stage){
     renderedSlideId=id;
     const ms=(event?.transitionSeconds??1.4)*1000;
     document.documentElement.style.setProperty('--transition',`${ms}ms`);
+    const incomingVideo=incoming.querySelector('video.media');
+    if(incomingVideo)incomingVideo.play().catch(()=>{});
     if(outgoing&&outgoing!==incoming&&!immediate){
       const transition=incoming.dataset.transition||'fade';
       outgoing.classList.add('leaving');incoming.classList.add('active',`enter-${transition}`);
-      transitionTimer=setTimeout(()=>{if(seq!==transitionSeq)return;outgoing.classList.remove('active','leaving');incoming.classList.remove(`enter-${transition}`)},ms+50);
+      transitionTimer=setTimeout(()=>{if(seq!==transitionSeq)return;outgoing.classList.remove('active','leaving');incoming.classList.remove(`enter-${transition}`);const oldVideo=outgoing.querySelector('video.media');if(oldVideo)oldVideo.pause()},ms+50);
     }else{
-      for(const el of els.values()){el.classList.remove('active','leaving','enter-fade','enter-zoom','enter-left','enter-right','enter-up','enter-blur','enter-wipe')}
+      for(const el of els.values()){
+        el.classList.remove('active','leaving','enter-fade','enter-zoom','enter-left','enter-right','enter-up','enter-blur','enter-wipe');
+        if(el!==incoming){const v=el.querySelector('video.media');if(v)v.pause()}
+      }
       incoming.classList.add('active');
     }
   }
