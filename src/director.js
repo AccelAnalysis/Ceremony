@@ -109,6 +109,7 @@ document.querySelector('#cinemaToggle').onclick=()=>command(runtime.cinemaVisibl
 
 document.querySelector('#showMessage').onclick=()=>command('message:show',document.querySelector('#messageInput').value);
 document.querySelector('#showGraduate').onclick=()=>command('graduate:show',document.querySelector('#graduateSelect').value);
+document.querySelector('#prevGraduate').onclick=()=>{const list=graduates.filter(g=>g.enabled!==false);if(!list.length)return;let i=list.findIndex(g=>g.id===runtime.specialId);if(i<0)i=0;i=(i-1+list.length)%list.length;document.querySelector('#graduateSelect').value=list[i].id;command('graduate:show',list[i].id)};
 document.querySelector('#nextGraduate').onclick=()=>{const list=graduates.filter(g=>g.enabled!==false);if(!list.length)return;let i=list.findIndex(g=>g.id===runtime.specialId);i=(i+1)%list.length;document.querySelector('#graduateSelect').value=list[i].id;command('graduate:show',list[i].id)};
 document.querySelector('#stageAward').onclick=()=>command('award:stage',document.querySelector('#awardSelect').value);
 document.querySelector('#revealAward').onclick=()=>command('award:reveal',document.querySelector('#awardSelect').value);
