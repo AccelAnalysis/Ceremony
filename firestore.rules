@@ -43,12 +43,17 @@ service cloud.firestore {
         isShortString(m.awards,120) && isShortString(m.post,120);
     }
     function isValidEvent(d) {
-      return d.keys().hasOnly(['name','status','defaultDuration','transitionSeconds','overlayOpacity','cinemaIntensity','crossfadeSeconds','countdownLabel','clockFormat','scheduleEnabled','catchUp','ceremonyStartAt','autoCueMusic','clockLayout','countdownLayout','modeTrackIds','ownerUid','createdAt','updatedAt']) &&
+      return d.keys().hasOnly(['name','status','defaultDuration','transitionSeconds','overlayOpacity','cinemaIntensity','cinemaEnabled','crossfadeSeconds','shufflePlaylist','loopPlaylist','duckSpecial','duckVolume','countdownLabel','clockFormat','scheduleEnabled','catchUp','ceremonyStartAt','autoCueMusic','clockLayout','countdownLayout','modeTrackIds','ownerUid','createdAt','updatedAt']) &&
         d.keys().hasAll(['name','status','defaultDuration','transitionSeconds','overlayOpacity','countdownLabel','clockFormat','scheduleEnabled','catchUp','autoCueMusic','clockLayout','countdownLayout','modeTrackIds','ownerUid']) &&
         isShortString(d.name,120) && d.status in ['draft','live','archived'] &&
         isNumberIn(d.defaultDuration,1,300) && isNumberIn(d.transitionSeconds,0,10) &&
         isNumberIn(d.overlayOpacity,0,1) && (!('cinemaIntensity' in d) || isNumberIn(d.cinemaIntensity,0,1)) &&
         (!('crossfadeSeconds' in d) || isNumberIn(d.crossfadeSeconds,0.1,30)) &&
+        (!('cinemaEnabled' in d) || d.cinemaEnabled is bool) &&
+        (!('shufflePlaylist' in d) || d.shufflePlaylist is bool) &&
+        (!('loopPlaylist' in d) || d.loopPlaylist is bool) &&
+        (!('duckSpecial' in d) || d.duckSpecial is bool) &&
+        (!('duckVolume' in d) || isNumberIn(d.duckVolume,0,1)) &&
         isShortString(d.countdownLabel,100) && d.clockFormat in ['12','24'] &&
         d.scheduleEnabled is bool && d.catchUp is bool && d.autoCueMusic is bool &&
         (!('ceremonyStartAt' in d) || d.ceremonyStartAt == null || d.ceremonyStartAt is timestamp) &&
@@ -93,8 +98,10 @@ service cloud.firestore {
         isShortString(d.citation,1000) && isUrlOrBlank(d.imageUrl);
     }
     function isValidTrack(d) {
-      return d.keys().hasOnly(['order','enabled','title','url']) && d.keys().hasAll(['order','enabled','title','url']) &&
-        isNumberIn(d.order,0,10000) && d.enabled is bool && isShortString(d.title,200) && isUrlOrBlank(d.url);
+      return d.keys().hasOnly(['order','enabled','title','url','source','storagePath']) && d.keys().hasAll(['order','enabled','title','url']) &&
+        isNumberIn(d.order,0,10000) && d.enabled is bool && isShortString(d.title,200) && isUrlOrBlank(d.url) &&
+        (!('source' in d) || (d.source is string && d.source in ['url','upload'])) &&
+        (!('storagePath' in d) || (d.storagePath is string && d.storagePath.size() <= 512));
     }
     function isValidSchedule(d) {
       return d.keys().hasOnly(['order','label','kind','runAt','timeOfDay','action','argument','enabled','catchUp']) &&
@@ -104,10 +111,11 @@ service cloud.firestore {
         isShortString(d.action,80) && isShortString(d.argument,1000) && d.enabled is bool && d.catchUp is bool;
     }
     function isValidRuntime(d) {
-      return d.keys().hasOnly(['mode','currentSlideId','playing','overlayVisible','captionsVisible','brandVisible','progressVisible','motionEnabled','clockVisible','countdownVisible','specialType','specialId','specialVisible','messageText','awardRevealed','trackId','musicCommand','musicCommandSeq','musicVolume','musicMuted','stateVersion','slideStartedAt','updatedAt','updatedBy']) &&
+      return d.keys().hasOnly(['mode','currentSlideId','playing','overlayVisible','captionsVisible','brandVisible','progressVisible','motionEnabled','cinemaVisible','clockVisible','countdownVisible','specialType','specialId','specialVisible','messageText','awardRevealed','trackId','musicCommand','musicCommandSeq','musicVolume','musicMuted','stateVersion','slideStartedAt','updatedAt','updatedBy']) &&
         d.keys().hasAll(['mode','currentSlideId','playing','overlayVisible','captionsVisible','brandVisible','progressVisible','motionEnabled','clockVisible','countdownVisible','specialType','specialId','specialVisible','messageText','awardRevealed','trackId','musicCommand','musicCommandSeq','musicVolume','musicMuted','stateVersion','slideStartedAt','updatedBy']) &&
         d.mode in ['pre','ceremony','graduates','awards','post'] && isShortString(d.currentSlideId,120) && d.playing is bool &&
         d.overlayVisible is bool && d.captionsVisible is bool && d.brandVisible is bool && d.progressVisible is bool && d.motionEnabled is bool &&
+        (!('cinemaVisible' in d) || d.cinemaVisible is bool) &&
         d.clockVisible is bool && d.countdownVisible is bool && d.specialType in ['none','message','graduate','award'] &&
         isShortString(d.specialId,120) && d.specialVisible is bool && isShortString(d.messageText,1000) && d.awardRevealed is bool &&
         isShortString(d.trackId,120) && d.musicCommand in ['play','pause','fade','stop'] && d.musicCommandSeq is int && d.musicCommandSeq >= 0 &&
