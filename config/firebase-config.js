@@ -1,12 +1,11 @@
-// Generated values for project ceremony-d1618.
-// apiKey and appId are populated by the Firebase bootstrap step after the
-// "Ceremony" web app is registered. The app also accepts a local override
-// from the setup panel so development is never blocked by a missing commit.
+// Firebase web app configuration for the Ceremony app in project ceremony-d1618.
+// The Web API key is intentionally used client-side by Firebase; it is not a service-account secret.
 export const projectDefaults = Object.freeze({
   authDomain: "ceremony-d1618.firebaseapp.com",
   projectId: "ceremony-d1618",
   storageBucket: "ceremony-d1618.firebasestorage.app",
   messagingSenderId: "359205123874",
-  apiKey: "",
-  appId: ""
+  appId: "1:359205123874:web:8f2cfd2714478cf9c1577b",
+  measurementId: "G-6WXGXBD2BV",
+  apiKey: ""
 });
